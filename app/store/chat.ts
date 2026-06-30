@@ -7,6 +7,8 @@ import {
 
 import { indexedDBStorage } from "@/app/utils/indexedDB-storage";
 import { nanoid } from "nanoid";
+
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
 import type {
   ClientApi,
   MultimodalContent,
@@ -854,6 +856,71 @@ export const useChatStore = createPersistStore(
           }
         }
       },
+
+      // Server sync methods
+      getToken() {
+        if (typeof window === "undefined") return null;
+        try {
+          return localStorage.getItem("nextchat-user-token");
+        } catch {
+          return null;
+        }
+      },
+
+      _syncTimer: null as any,
+
+      async loadFromServer() {
+        const token = get().getToken();
+        if (!token) return;
+        try {
+          const res = await fetch("/api/user/chat", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await res.json();
+          if (data.data && data.data.sessions) {
+            const localSessions = get().sessions;
+            const serverSessions = data.data.sessions;
+            if (
+              serverSessions.length > 0 &&
+              localSessions.length === 1 &&
+              localSessions[0].messages.length === 0
+            ) {
+              set(() => ({
+                sessions: serverSessions,
+                currentSessionIndex: data.data.currentSessionIndex || 0,
+              }));
+              console.log("[Sync] Loaded sessions from server");
+            }
+          }
+        } catch (e) {
+          console.log("[Sync] Failed to load from server", e);
+        }
+      },
+
+      saveToServer() {
+        const state = get() as any;
+        if (state._syncTimer) clearTimeout(state._syncTimer);
+        state._syncTimer = setTimeout(async () => {
+          const token = get().getToken();
+          if (!token) return;
+          try {
+            const data = {
+              sessions: get().sessions,
+              currentSessionIndex: get().currentSessionIndex,
+            };
+            await fetch("/api/user/chat", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(data),
+            });
+          } catch (e) {
+            console.log("[Sync] Failed to save to server", e);
+          }
+        }, 3000);
+      },
     };
 
     return methods;
@@ -861,6 +928,13 @@ export const useChatStore = createPersistStore(
   {
     name: StoreKey.Chat,
     version: 3.3,
+    onRehydrateStorage: () => {
+      return (state) => {
+        if (state && (state as any)._hasHydrated) {
+          console.log("[Sync] Store hydrated");
+        }
+      };
+    },
     migrate(persistedState, version) {
       const state = persistedState as any;
       const newState = JSON.parse(

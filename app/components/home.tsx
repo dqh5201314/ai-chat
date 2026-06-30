@@ -25,6 +25,8 @@ import {
 import { SideBar } from "./sidebar";
 import { useAppConfig } from "../store/config";
 import { AuthPage } from "./auth";
+import { LoginPage, getStoredToken } from "./login";
+import { useChatStore } from "../store";
 import { getClientConfig } from "../config/client";
 import { type ClientApi, getClientApi } from "../client/api";
 import { useAccessStore } from "../store";
@@ -166,12 +168,36 @@ function Screen() {
   const isSd = location.pathname === Path.Sd;
   const isSdNew = location.pathname === Path.SdNew;
 
+  const [token, setToken] = useState<string | null>(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    const stored = getStoredToken();
+    setToken(stored);
+    setChecking(false);
+  }, []);
+
   const isMobileScreen = useMobileScreen();
   const shouldTightBorder =
     getClientConfig()?.isApp || (config.tightBorder && !isMobileScreen);
 
   useEffect(() => {
     loadAsyncGoogleFont();
+  }, []);
+
+  // Auto-sync chat data to server every 10 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      try {
+        const chatStore = useChatStore.getState() as any;
+        if (typeof chatStore.saveToServer === "function") {
+          chatStore.saveToServer();
+        }
+      } catch (e) {
+        // ignore sync errors
+      }
+    }, 10000);
+    return () => clearInterval(timer);
   }, []);
 
   if (isArtifact) {
@@ -181,6 +207,15 @@ function Screen() {
       </Routes>
     );
   }
+
+  if (checking) {
+    return <Loading />;
+  }
+
+  if (!token) {
+    return <LoginPage onLogin={(t) => setToken(t)} />;
+  }
+
   const renderContent = () => {
     if (isAuth) return <AuthPage />;
     if (isSd) return <Sd />;

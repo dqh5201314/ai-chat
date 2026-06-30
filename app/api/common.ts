@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSideConfig } from "../config/server";
-import { OPENAI_BASE_URL, ServiceProvider } from "../constant";
+import { OPENAI_BASE_URL } from "../constant";
 import { cloudflareAIGatewayUrl } from "../utils/cloudflare";
-import { getModelProvider, isModelNotavailableInServer } from "../utils/model";
 
 const serverConfig = getServerSideConfig();
 
@@ -29,8 +28,12 @@ export async function requestOpenai(req: NextRequest) {
 
   let path = `${req.nextUrl.pathname}`.replaceAll("/api/openai/", "");
 
+  // 火山引擎方舟的 OpenAI 兼容路径使用 /v3/ 而不是 /v1/
   let baseUrl =
     (isAzure ? serverConfig.azureUrl : serverConfig.baseUrl) || OPENAI_BASE_URL;
+  if (baseUrl.includes('ark.cn-beijing.volces.com')) {
+    path = path.replace('v1/', 'v3/');
+  }
 
   if (!baseUrl.startsWith("http")) {
     baseUrl = `https://${baseUrl}`;
@@ -107,41 +110,6 @@ export async function requestOpenai(req: NextRequest) {
     duplex: "half",
     signal: controller.signal,
   };
-
-  // #1815 try to refuse gpt4 request
-  if (serverConfig.customModels && req.body) {
-    try {
-      const clonedBody = await req.text();
-      fetchOptions.body = clonedBody;
-
-      const jsonBody = JSON.parse(clonedBody) as { model?: string };
-
-      // not undefined and is false
-      if (
-        isModelNotavailableInServer(
-          serverConfig.customModels,
-          jsonBody?.model as string,
-          [
-            ServiceProvider.OpenAI,
-            ServiceProvider.Azure,
-            jsonBody?.model as string, // support provider-unspecified model
-          ],
-        )
-      ) {
-        return NextResponse.json(
-          {
-            error: true,
-            message: `you are not allowed to use ${jsonBody?.model} model`,
-          },
-          {
-            status: 403,
-          },
-        );
-      }
-    } catch (e) {
-      console.error("[OpenAI] gpt4 filter", e);
-    }
-  }
 
   try {
     const res = await fetch(fetchUrl, fetchOptions);
