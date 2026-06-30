@@ -1828,6 +1828,14 @@
   resolved "https://registry.npmjs.org/@types/json5/-/json5-0.0.29.tgz"
   integrity sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==
 
+"@types/jsonwebtoken@^9.0.10":
+  version "9.0.10"
+  resolved "https://registry.npmjs.org/@types/jsonwebtoken/-/jsonwebtoken-9.0.10.tgz"
+  integrity sha512-asx5hIG9Qmf/1oStypjanR7iKTv0gXQ1Ov/jfrX6kS/EO0OFni8orbmGCn0672NHR3kXHwpAwR+B368ZGN/2rA==
+  dependencies:
+    "@types/ms" "*"
+    "@types/node" "*"
+
 "@types/katex@^0.11.0":
   version "0.11.1"
   resolved "https://registry.npmjs.org/@types/katex/-/katex-0.11.1.tgz"
