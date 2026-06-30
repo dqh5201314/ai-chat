@@ -1,18 +1,24 @@
-import jwt from "jsonwebtoken";
+import { SignJWT, jwtVerify } from "jose";
 
-const JWT_SECRET = process.env.JWT_SECRET || "nextchat-secret-key-dqh-2024";
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || "nextchat-secret-key-dqh-2024"
+);
 
 export interface JwtPayload {
   username: string;
 }
 
-export function signToken(username: string): string {
-  return jwt.sign({ username }, JWT_SECRET, { expiresIn: "30d" });
+export async function signToken(username: string): Promise<string> {
+  return new SignJWT({ username })
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime("30d")
+    .sign(JWT_SECRET);
 }
 
-export function verifyToken(token: string): JwtPayload | null {
+export async function verifyToken(token: string): Promise<JwtPayload | null> {
   try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload as unknown as JwtPayload;
   } catch {
     return null;
   }

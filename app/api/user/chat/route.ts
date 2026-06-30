@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/app/lib/auth-utils";
 
-function getAuthUser(req: NextRequest): string | null {
+async function getAuthUser(req: NextRequest): Promise<string | null> {
   const authHeader = req.headers.get("authorization") || "";
   const token = authHeader.replace("Bearer ", "");
-  const payload = verifyToken(token);
+  const payload = await verifyToken(token);
   return payload?.username || null;
 }
 
-// Vercel serverless: data is ephemeral, stored in memory
+// Cloudflare Pages: data is ephemeral, stored in memory
 let memoryStore: any = null;
 
 export async function GET(req: NextRequest) {
-  const user = getAuthUser(req);
+  const user = await getAuthUser(req);
   if (!user) {
     return NextResponse.json({ error: true, message: "未登录" }, { status: 401 });
   }
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = getAuthUser(req);
+  const user = await getAuthUser(req);
   if (!user) {
     return NextResponse.json({ error: true, message: "未登录" }, { status: 401 });
   }

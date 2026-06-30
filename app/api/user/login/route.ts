@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const token = signToken(username);
+    const token = await signToken(username);
 
     return NextResponse.json({ token, username });
   } catch (e) {
