@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSideConfig } from "../config/server";
 import { OPENAI_BASE_URL } from "../constant";
 import { cloudflareAIGatewayUrl } from "../utils/cloudflare";
+import { getModelProvider } from "../utils/model";
 
 const serverConfig = getServerSideConfig();
 
