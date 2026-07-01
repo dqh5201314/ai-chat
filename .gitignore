@@ -46,6 +46,8 @@ dev
 *.key.pub
 
 masks.json
+!public/masks.json
 
 # mcp config
 app/mcp/mcp_config.json
+.env*
