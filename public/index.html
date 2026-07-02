@@ -308,7 +308,7 @@ async function loadModels(){
   const select=document.getElementById('model-select');
   select.innerHTML='<option value="">加载中...</option>';
   try{
-    const res=await fetch('/api/models',{method:'POST',headers:{'Content-Type':'application/json','x-token':token,'x-api-url':settings.apiUrl||''}});
+    const res=await fetch('/api/models',{method:'POST',headers:{'Content-Type':'application/json','x-token':token,'x-api-key':settings.apiKey||'','x-api-url':settings.apiUrl||''}});
     const data=await res.json();
     if(data.models&&data.models.length>0){
       select.innerHTML=data.models.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
@@ -332,7 +332,12 @@ async function enterChat(){
   document.getElementById('header-user').textContent=username;
   await loadAll();
   renderCharList();
-  loadModels();
+  // Load models with user's API key
+  if(settings.apiKey)loadModels();
+  else{
+    const select=document.getElementById('model-select');
+    select.innerHTML='<option value="deepseek-v4-flash-260425">DeepSeek V4 Flash</option><option value="deepseek-v4-pro-260425">DeepSeek V4 Pro</option>';
+  }
   if(!currentChar)selectChar(characters[0]?.id);
 }
 
@@ -347,32 +352,23 @@ if(token){enterChat()}
 
 // ============ Data Loading ============
 async function loadAll(){
-  // Clear previous user data
-  conversations=[];
-  characters=[];
-  chatHistory=[];
-  currentChar=null;
+  // Load from localStorage (per user)
+  const prefix=username+'_';
   try{
-    const [convRes,setRes]=await Promise.all([
-      fetch('/api/user/conversations',{headers:{'x-token':token}}),
-      fetch('/api/user/settings',{headers:{'x-token':token}})
-    ]);
-    const convData=await convRes.json();
-    const setData=await setRes.json();
-    if(convData.conversations)conversations=convData.conversations;
-    if(setData.settings){settings={...settings,...setData.settings};}
-    // Load characters from settings or use defaults
-    if(settings.characters&&settings.characters.length>0)characters=settings.characters;
-    else{characters=JSON.parse(JSON.stringify(defaultChars));saveChars()}
+    const savedConvs=localStorage.getItem(prefix+'conversations');
+    conversations=savedConvs?JSON.parse(savedConvs):[];
+    const savedChars=localStorage.getItem(prefix+'characters');
+    characters=savedChars?JSON.parse(savedChars):JSON.parse(JSON.stringify(defaultChars));
+    const savedSettings=localStorage.getItem(prefix+'settings');
+    if(savedSettings)settings={...settings,...JSON.parse(savedSettings)};
   }catch(e){characters=JSON.parse(JSON.stringify(defaultChars))}
 }
 
-async function saveConversations(){
-  try{await fetch('/api/user/conversations',{method:'POST',headers:{'Content-Type':'application/json','x-token':token},body:JSON.stringify({conversations})})}catch(e){}
-}
-async function saveChars(){
-  settings.characters=characters;
-  try{await fetch('/api/user/settings',{method:'POST',headers:{'Content-Type':'application/json','x-token':token},body:JSON.stringify({settings})})}catch(e){}
+function saveAll(){
+  const prefix=username+'_';
+  localStorage.setItem(prefix+'conversations',JSON.stringify(conversations));
+  localStorage.setItem(prefix+'characters',JSON.stringify(characters));
+  localStorage.setItem(prefix+'settings',JSON.stringify(settings));
 }
 
 // ============ Sidebar ============
@@ -420,7 +416,7 @@ function renderCharList(){
 
 function deleteChar(i){
   if(!confirm('删除此角色？'))return;
-  characters.splice(i,1);saveChars();renderCharList();
+  characters.splice(i,1);saveAll();renderCharList();
   if(!currentChar||!characters.find(c=>c.id===currentChar.id))selectChar(characters[0]?.id);
 }
 
@@ -448,7 +444,7 @@ function saveChar(){
   if(!name||!prompt)return alert('请填写名称和人设');
   if(editingCharIndex>=0)characters[editingCharIndex]={...characters[editingCharIndex],name,avatar,prompt};
   else characters.push({id:'c-'+Date.now(),name,avatar,prompt});
-  saveChars();renderCharList();hideModal('char-modal');editingCharIndex=-1;
+  saveAll();renderCharList();hideModal('char-modal');editingCharIndex=-1;
 }
 
 // ============ Settings ============
@@ -470,13 +466,11 @@ function showSettings(){
   document.getElementById('settings-modal').classList.add('show');
 }
 function saveSettings(){
-  const select=document.getElementById('settings-api-url-select');
-  const custom=document.getElementById('settings-api-url');
   settings.apiKey=document.getElementById('settings-api-key').value;
-  settings.apiUrl=select.value==='custom'?custom.value:select.value;
-  fetch('/api/user/settings',{method:'POST',headers:{'Content-Type':'application/json','x-token':token},body:JSON.stringify({settings})});
+  settings.apiUrl=document.getElementById('settings-api-url-select').value==='custom'?document.getElementById('settings-api-url').value:document.getElementById('settings-api-url-select').value;
+  saveAll();
   hideModal('settings-modal');
-  loadModels();
+  if(settings.apiKey)loadModels();
 }
 document.getElementById('settings-modal').addEventListener('click',function(e){if(e.target===this)hideModal('settings-modal')});
 document.getElementById('char-modal').addEventListener('click',function(e){if(e.target===this)hideModal('char-modal')});
@@ -539,7 +533,7 @@ async function sendMessage(){
   const msgs=[{role:'system',content:prompt},...chatHistory.slice(-20),{role:'user',content:text}];
 
   try{
-    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json','x-token':token,'x-api-url':settings.apiUrl||''},body:JSON.stringify({model,messages:msgs,stream:false,max_tokens:8192,temperature:0.85})});
+    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json','x-token':token,'x-api-key':settings.apiKey||'','x-api-url':settings.apiUrl||''},body:JSON.stringify({model,messages:msgs,stream:false,max_tokens:8192,temperature:0.85})});
     const data=await res.json();removeTyping();
     if(data.choices&&data.choices[0]){
       const msg=data.choices[0].message;
@@ -550,7 +544,7 @@ async function sendMessage(){
       let convo=conversations.find(c=>c.charId===currentChar.id);
       if(!convo){convo={id:'c-'+Date.now(),charId:currentChar.id,charName:currentChar.name,charAvatar:currentChar.avatar,messages:[]};conversations.push(convo)}
       convo.messages=chatHistory;
-      saveConversations();
+      saveAll();
     }else addMessage('assistant','错误: '+(data.error?.message||JSON.stringify(data.error)));
   }catch(e){removeTyping();addMessage('assistant','网络错误')}
   document.getElementById('send-btn').disabled=false;
