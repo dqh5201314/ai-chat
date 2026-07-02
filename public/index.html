@@ -88,11 +88,34 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:
 .modal-btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
 .modal-btn-cancel{background:#f1f3f5;color:#6c757d}
 @media(max-width:768px){
-  .sidebar{position:absolute;left:0;top:0;height:100%;z-index:3;box-shadow:4px 0 12px rgba(0,0,0,0.08)}
-  .sidebar.hide{left:-260px}
-  .msg{max-width:92%}
-  .chat-messages{padding:16px}
-  .chat-input-wrap{padding:12px 16px}
+  .login-card{padding:32px 20px;width:92vw}
+  .login-card .login-title{font-size:18px}
+  .chat-header{padding:10px 12px}
+  .chat-header-title{font-size:13px}
+  .chat-header-sub{font-size:10px}
+  .chat-header-logo{width:30px;height:30px;font-size:14px}
+  .header-btn{padding:4px 8px;font-size:11px}
+  .sidebar{position:fixed;left:-280px;top:0;height:100%;z-index:20;width:260px;transition:.3s;box-shadow:4px 0 20px rgba(0,0,0,0.15)}
+  .sidebar.open{left:0}
+  .sidebar-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);z-index:19;display:none}
+  .sidebar-backdrop.show{display:block}
+  .msg{max-width:92%;gap:8px}
+  .msg-content{font-size:14px;padding:10px 14px}
+  .msg-avatar{width:28px;height:28px;font-size:12px}
+  .chat-messages{padding:12px;gap:10px}
+  .chat-input-wrap{padding:10px 12px}
+  .chat-input{padding:10px 14px;font-size:14px}
+  .send-btn{width:42px;height:42px;font-size:16px}
+  .send-btn svg{width:16px;height:16px}
+  .modal{padding:24px 20px;width:92vw}
+  #model-select{max-width:100px}
+}
+@media(max-width:480px){
+  .login-card{padding:24px 16px}
+  .login-input{padding:12px 14px;font-size:14px}
+  .chat-header-right{gap:4px}
+  .header-btn{padding:3px 6px;font-size:10px}
+  #model-select{max-width:80px;padding:3px 4px;font-size:10px}
 }
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -146,7 +169,8 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:
     </div>
   </div>
   <div class="chat-layout">
-    <div class="sidebar" id="sidebar">
+    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+<div class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <span class="sidebar-title">角色卡</span>
         <button class="add-char-btn" onclick="showCharModal()">+ 添加</button>
@@ -352,7 +376,16 @@ async function saveChars(){
 }
 
 // ============ Sidebar ============
-function toggleSidebar(){document.getElementById('sidebar').classList.toggle('hide')}
+function toggleSidebar(){
+  const s=document.getElementById('sidebar');
+  const b=document.getElementById('sidebar-backdrop');
+  const isMobile=window.innerWidth<=768;
+  if(isMobile){
+    s.classList.toggle('open');b.classList.toggle('show');
+  }else{
+    s.classList.toggle('hide')
+  }
+}
 function updateIdentity(){
   userIdentity=document.getElementById('user-identity').value||'同专业的学弟';
   if(characters[0]&&characters[0].id==='senpai'){
